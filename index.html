@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TrendyBuzz — Scan Log</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@900&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #F2C102;
+    --gold-dim: rgba(242,193,2,0.12);
+    --black: #0a0a0a;
+    --dark: #111111;
+    --card: #161616;
+    --border: #1e1e1e;
+    --gray: #888;
+    --green: #1db954;
+    --red: #e53e3e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: var(--black);
+    font-family: 'DM Sans', sans-serif;
+    color: #fff;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .header {
+    background: var(--dark);
+    border-bottom: 2px solid var(--gold);
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .logo { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--gold); }
+  .logo span { color: #fff; }
+  .header-right { display: flex; align-items: center; gap: 8px; }
+  .sync-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--gray); transition: background 0.3s;
+  }
+  .sync-dot.syncing { background: var(--gold); animation: pulse 1s infinite; }
+  .sync-dot.ok { background: var(--green); }
+  .sync-dot.err { background: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .sync-label { font-family:'DM Mono',monospace; font-size:10px; color:var(--gray); }
+
+  /* DESKTOP TABS top, MOBILE TABS bottom */
+  .tabs {
+    display: flex;
+    background: var(--dark);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 57px;
+    z-index: 40;
+  }
+  .tab {
+    flex: 1; padding: 13px 8px;
+    text-align: center; font-size: 12px; font-weight: 600;
+    color: var(--gray); cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    font-family: 'DM Mono', monospace;
+  }
+  .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+  .page { display: none; padding: 16px; padding-bottom: 80px; max-width: 600px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  /* STAT CARDS */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .sum-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    text-align: center;
+  }
+  .sum-card.gold { border-color: var(--gold); background: var(--gold-dim); }
+  .sum-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 34px; color: var(--gold); line-height: 1;
+  }
+  .sum-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--gray);
+    margin-top: 6px; letter-spacing: 1px; text-transform: uppercase;
+  }
+
+  /* HOURLY CHART */
+  .chart-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .chart-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--gray);
+    letter-spacing: 2px; text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .chart-bars { display:flex; align-items:flex-end; gap:3px; height:80px; }
+  .bar-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .bar {
+    width: 100%; background: var(--gold);
+    border-radius: 3px 3px 0 0; min-height: 2px;
+    transition: height 0.5s ease;
+  }
+  .bar-label { font-family:'DM Mono',monospace; font-size:8px; color:var(--gray); }
+
+  /* DAILY HISTORY */
+  .day-row {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .day-title { font-family:'DM Mono',monospace; font-size:12px; color:#ccc; }
+  .day-count {
+    font-family:'DM Mono',monospace; font-size:11px;
+    background: var(--gold-dim); color: var(--gold);
+    border: 1px solid var(--gold); border-radius: 20px;
+    padding: 3px 12px;
+  }
+
+  /* SCAN BOX */
+  .scan-box {
+    background: var(--dark);
+    border: 2px solid var(--gold);
+    border-radius: 16px;
+    padding: 22px 18px;
+    margin-bottom: 14px;
+    position: relative; overflow: hidden;
+  }
+  .scan-box::after {
+    content: '';
+    position: absolute; top: 0; left: -100%;
+    width: 60%; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    animation: sweep 2.5s ease-in-out infinite;
+  }
+  @keyframes sweep { 0%{left:-60%} 100%{left:140%} }
+  .scan-icon { font-size:24px; text-align:center; display:block; margin-bottom:12px; }
+  .scan-input {
+    width: 100%;
+    background: #1a1a1a;
+    border: 1.5px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 20px; color: #fff;
+    letter-spacing: 3px; outline: none;
+    text-align: center; transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+  .scan-input:focus { border-color: var(--gold); }
+  .scan-input::placeholder { font-size:12px; letter-spacing:1px; color:#444; }
+  .scan-hint { margin-top:10px; font-size:11px; color:var(--gray); text-align:center; font-family:'DM Mono',monospace; }
+
+  .flash {
+    padding: 12px 16px; border-radius: 10px;
+    font-size: 13px; font-weight: 600;
+    text-align: center; font-family: 'DM Mono', monospace;
+    display: none; margin-bottom: 14px;
+    animation: pop 0.25s ease;
+  }
+  @keyframes pop { from{opacity:0;transform:scale(0.95)} to{opacity:1;transform:scale(1)} }
+  .flash.success { display:block; background:rgba(29,185,84,0.12); border:1px solid var(--green); color:var(--green); }
+  .flash.error   { display:block; background:rgba(229,62,62,0.12); border:1px solid var(--red); color:var(--red); }
+  .flash.info    { display:block; background:var(--gold-dim); border:1px solid var(--gold); color:var(--gold); }
+
+  /* SEARCH */
+  .search-row { display:flex; gap:8px; margin-bottom:14px; }
+  .search-input {
+    flex: 1;
+    background: var(--dark); border: 1.5px solid var(--border);
+    border-radius: 10px; padding: 12px 14px;
+    font-family: 'DM Mono', monospace; font-size:14px; color:#fff;
+    letter-spacing:2px; outline:none; transition:border-color 0.2s;
+    -webkit-appearance: none;
+  }
+  .search-input:focus { border-color: var(--gold); }
+  .search-input::placeholder { color:#444; font-size:11px; }
+  .btn-gold {
+    padding: 12px 16px; background: var(--gold);
+    border: none; border-radius: 10px;
+    color: var(--black); font-weight: 700; font-size: 13px;
+    cursor: pointer; font-family: 'DM Sans', sans-serif;
+  }
+  .btn-ghost {
+    padding: 12px 13px; background: var(--card);
+    border: 1.5px solid var(--border); border-radius: 10px;
+    color: var(--gray); font-size: 14px; cursor: pointer;
+  }
+
+  .filter-row { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
+  .ftab {
+    padding: 6px 14px; border-radius: 20px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--gray); font-size: 11px; cursor: pointer;
+    font-family: 'DM Mono', monospace; transition: all 0.2s;
+  }
+  .ftab.active { background:var(--gold); color:var(--black); border-color:var(--gold); font-weight:700; }
+
+  .rec-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .rec-count { font-family:'DM Mono',monospace; font-size:11px; color:var(--gray); }
+  .btn-sm {
+    padding: 5px 12px; background: transparent;
+    border: 1px solid var(--border); border-radius: 20px;
+    color: var(--gray); font-size: 11px;
+    font-family: 'DM Mono', monospace; cursor: pointer;
+  }
+
+  .record-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 8px;
+    display: flex; align-items: center; justify-content: space-between;
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-5px)} to{opacity:1;transform:translateY(0)} }
+  .record-card.highlight { border-color:var(--gold); background:var(--gold-dim); }
+  .order-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 17px; font-weight: 500;
+    color: var(--gold); letter-spacing: 2px;
+  }
+  .rec-meta { font-family:'DM Mono',monospace; font-size:11px; color:var(--gray); margin-top:4px; }
+  .pending-badge {
+    font-size:10px; font-family:'DM Mono',monospace;
+    background:var(--gold-dim); color:var(--gold);
+    border:1px solid var(--gold); border-radius:20px; padding:3px 8px;
+  }
+
+  .empty { text-align:center; padding:40px 20px; color:var(--gray); font-family:'DM Mono',monospace; font-size:12px; }
+  .empty .icon { font-size:36px; margin-bottom:10px; }
+
+  .sec-label {
+    font-family:'DM Mono',monospace; font-size:10px;
+    color:var(--gray); letter-spacing:2px;
+    text-transform:uppercase; margin-bottom:10px;
+  }
+
+  @media (max-width: 600px) {
+    .tabs { position:fixed; bottom:0; top:auto; border-top:1px solid var(--border); border-bottom:none; z-index:50; width:100%; }
+    .page { padding-bottom:110px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">TrendyBuzz<span>.</span></div>
+  <div class="header-right">
+    <div class="sync-dot" id="syncDot"></div>
+    <span class="sync-label" id="syncLabel">connecting...</span>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('scan',this)">⚡ Scan</div>
+  <div class="tab" onclick="showTab('summary',this)">📊 Summary</div>
+  <div class="tab" onclick="showTab('records',this)">📋 Records</div>
+</div>
+
+<!-- ══ SCAN PAGE ══ -->
+<div class="page active" id="page-scan">
+  <div class="scan-box">
+    <span class="scan-icon">⚡</span>
+    <input type="text" class="scan-input" id="scanInput"
+      placeholder="Scan or type order #"
+      autocomplete="off" autocorrect="off" autocapitalize="characters" autofocus />
+    <div class="scan-hint">Scanner দিয়ে scan করলে auto-save → Google Sheet ✓</div>
+  </div>
+  <div class="flash" id="flashMsg"></div>
+
+  <div class="summary-grid">
+    <div class="sum-card gold">
+      <div class="sum-num" id="todayBig">0</div>
+      <div class="sum-label">আজকের Packages</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-num" id="totalBig">0</div>
+      <div class="sum-label">Total Records</div>
+    </div>
+  </div>
+
+  <div class="sec-label">সর্বশেষ scans</div>
+  <div id="recentList"></div>
+</div>
+
+<!-- ══ SUMMARY PAGE ══ -->
+<div class="page" id="page-summary">
+  <div class="summary-grid">
+    <div class="sum-card gold">
+      <div class="sum-num" id="s-today">0</div>
+      <div class="sum-label">আজ</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-num" id="s-yesterday">0</div>
+      <div class="sum-label">গতকাল</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-num" id="s-week">0</div>
+      <div class="sum-label">এই সপ্তাহ</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-num" id="s-total">0</div>
+      <div class="sum-label">সর্বমোট</div>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-title">📈 আজকের hourly breakdown</div>
+    <div class="chart-bars" id="hourlyChart"></div>
+  </div>
+
+  <div class="sec-label">📅 Daily History</div>
+  <div id="dailyHistory"></div>
+</div>
+
+<!-- ══ RECORDS PAGE ══ -->
+<div class="page" id="page-records">
+  <div class="search-row">
+    <input type="text" class="search-input" id="searchInput"
+      placeholder="Order # search করো..."
+      autocorrect="off" autocapitalize="characters" />
+    <button class="btn-gold" onclick="doSearch()">🔍</button>
+    <button class="btn-ghost" onclick="clearSearch()">✕</button>
+  </div>
+
+  <div class="filter-row">
+    <button class="ftab active" onclick="setFilter('all',this)">সব</button>
+    <button class="ftab" onclick="setFilter('today',this)">📅 আজ</button>
+    <button class="ftab" onclick="setFilter('week',this)">📆 সপ্তাহ</button>
+  </div>
+
+  <div class="rec-header">
+    <div class="rec-count" id="recCount">লোড হচ্ছে...</div>
+    <div style="display:flex;gap:6px;">
+      <button class="btn-sm" onclick="loadFromSheet()">🔄 Refresh</button>
+      <button class="btn-sm" onclick="exportCSV()">⬇ CSV</button>
+    </div>
+  </div>
+
+  <div id="recordList"><div class="empty"><div class="icon">⏳</div>লোড হচ্ছে...</div></div>
+</div>
+
+<script>
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxY13TL0WLPp-nk7ZJVTW4oX31pyRpJiGKACWzrvRRZtqhYqEBr6E5CTQji0v-TGn45/exec';
+
+let records = [];
+let filter = 'all';
+let searchQ = '';
+
+function showTab(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'summary') renderSummary();
+  if (name === 'records') render();
+}
+
+document.getElementById('scanInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    const val = this.value.trim().toUpperCase();
+    if (!val) return;
+    this.value = '';
+    handleScan(val);
+  }
+});
+
+document.getElementById('searchInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') doSearch();
+});
+
+async function handleScan(orderNum) {
+  const exists = records.find(r => r.order === orderNum);
+  if (exists) {
+    showFlash('⚠️ ' + orderNum + ' আগেই scan হয়েছে! ' + exists.date + ' ' + exists.time, 'error');
+    return;
+  }
+
+  const now = new Date();
+  const record = { order: orderNum, date: fmtDate(now), time: fmtTime(now), iso: now.toISOString(), pending: true };
+  records.unshift(record);
+  updateStats(); renderRecent();
+  showFlash('⏳ Saving ' + orderNum + '...', 'info');
+  setSyncStatus('syncing', 'saving...');
+
+  try {
+    const res = await fetch(SHEET_URL, {
+      method: 'POST',
+      body: JSON.stringify({ order: orderNum, iso: now.toISOString() })
+    });
+    const json = await res.json();
+
+    if (json.success === false && json.msg === 'duplicate') {
+      showFlash('⚠️ Sheet এ already আছে: ' + orderNum, 'error');
+      records = records.filter(r => r.order !== orderNum);
+      updateStats(); renderRecent();
+      setSyncStatus('ok', 'synced ✓');
+      return;
+    }
+
+    const idx = records.findIndex(r => r.order === orderNum);
+    if (idx !== -1) records[idx].pending = false;
+    updateStats(); renderRecent();
+    showFlash('✅ ' + orderNum + ' → Google Sheet ✓', 'success');
+    setSyncStatus('ok', 'synced ✓');
+  } catch(err) {
+    showFlash('📵 Offline — locally saved', 'error');
+    setSyncStatus('err', 'offline');
+  }
+}
+
+async function loadFromSheet() {
+  setSyncStatus('syncing', 'loading...');
+  try {
+    const res = await fetch(SHEET_URL);
+    const rows = await res.json();
+    const data = rows.slice(1).filter(r => r[0]);
+    records = data.map(r => ({
+      order: String(r[0]).trim(),
+      date: String(r[1]),
+      time: String(r[2]),
+      iso: rowToISO(r[1], r[2]),
+      pending: false
+    })).reverse();
+
+    updateStats(); renderRecent(); render(); renderSummary();
+    setSyncStatus('ok', records.length + ' records');
+    document.getElementById('recCount').textContent = records.length + ' records';
+  } catch(err) {
+    setSyncStatus('err', 'offline');
+    document.getElementById('recCount').textContent = 'error';
+    document.getElementById('recordList').innerHTML = `<div class="empty"><div class="icon">📵</div>Connection নেই।<br>Refresh চাপো।</div>`;
+  }
+}
+
+function renderRecent() {
+  const recent = records.slice(0, 5);
+  const el = document.getElementById('recentList');
+  if (!recent.length) {
+    el.innerHTML = `<div class="empty"><div class="icon">📦</div>এখনো কোনো scan নেই।</div>`;
+    return;
+  }
+  el.innerHTML = recent.map(r => `
+    <div class="record-card">
+      <div>
+        <div class="order-num">${r.order}</div>
+        <div class="rec-meta">${r.date} &nbsp;🕐 ${r.time}</div>
+      </div>
+      ${r.pending ? '<span class="pending-badge">⏳</span>' : ''}
+    </div>
+  `).join('');
+}
+
+function render() {
+  let data = [...records];
+  if (searchQ) data = data.filter(r => r.order.includes(searchQ));
+  if (filter === 'today') {
+    const today = new Date().toDateString();
+    data = data.filter(r => { try{ return new Date(r.iso).toDateString() === today; }catch{return false;} });
+  }
+  if (filter === 'week') {
+    const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+    data = data.filter(r => { try{ return new Date(r.iso) >= weekAgo; }catch{return false;} });
+  }
+  document.getElementById('recCount').textContent = data.length + ' records';
+  const list = document.getElementById('recordList');
+  if (!data.length) {
+    list.innerHTML = `<div class="empty"><div class="icon">🔍</div>কোনো record পাওয়া যায়নি।</div>`;
+    return;
+  }
+  list.innerHTML = data.map(r => `
+    <div class="record-card ${searchQ && r.order.includes(searchQ) ? 'highlight' : ''}">
+      <div>
+        <div class="order-num">${r.order}</div>
+        <div class="rec-meta">${r.date} &nbsp;🕐 ${r.time}</div>
+      </div>
+      ${r.pending ? '<span class="pending-badge">⏳ saving</span>' : ''}
+    </div>
+  `).join('');
+}
+
+function renderSummary() {
+  const now = new Date();
+  const today = now.toDateString();
+  const yesterday = new Date(now); yesterday.setDate(yesterday.getDate()-1);
+  const weekAgo = new Date(now); weekAgo.setDate(weekAgo.getDate()-7);
+
+  const todayRec = records.filter(r=>{ try{return new Date(r.iso).toDateString()===today;}catch{return false;} });
+  const yestRec  = records.filter(r=>{ try{return new Date(r.iso).toDateString()===yesterday.toDateString();}catch{return false;} });
+  const weekRec  = records.filter(r=>{ try{return new Date(r.iso)>=weekAgo;}catch{return false;} });
+
+  document.getElementById('s-today').textContent     = todayRec.length;
+  document.getElementById('s-yesterday').textContent = yestRec.length;
+  document.getElementById('s-week').textContent      = weekRec.length;
+  document.getElementById('s-total').textContent     = records.length;
+
+  // Hourly chart 8am–11pm
+  const hours = Array.from({length:16},(_,i)=>i+8);
+  const counts = hours.map(h => todayRec.filter(r=>{
+    try{return new Date(r.iso).getHours()===h;}catch{return false;}
+  }).length);
+  const maxC = Math.max(...counts, 1);
+  document.getElementById('hourlyChart').innerHTML = hours.map((h,i)=>`
+    <div class="bar-col">
+      <div class="bar" style="height:${Math.round((counts[i]/maxC)*72)+2}px;opacity:${counts[i]>0?'1':'0.2'}"></div>
+      <div class="bar-label">${h>12?h-12:h}${h>=12?'p':'a'}</div>
+    </div>
+  `).join('');
+
+  // Daily history grouped
+  const grouped = {};
+  records.forEach(r => {
+    const key = r.date || 'Unknown';
+    if (!grouped[key]) grouped[key] = 0;
+    grouped[key]++;
+  });
+  const days = Object.keys(grouped).slice(0,14);
+  document.getElementById('dailyHistory').innerHTML = days.length
+    ? days.map(day=>`
+        <div class="day-row">
+          <span class="day-title">📅 ${day}</span>
+          <span class="day-count">${grouped[day]} packages</span>
+        </div>
+      `).join('')
+    : `<div class="empty"><div class="icon">📊</div>Data নেই।</div>`;
+}
+
+function updateStats() {
+  const today = new Date().toDateString();
+  const tc = records.filter(r=>{ try{return new Date(r.iso).toDateString()===today;}catch{return false;} }).length;
+  document.getElementById('todayBig').textContent = tc;
+  document.getElementById('totalBig').textContent = records.length;
+}
+
+function doSearch() {
+  searchQ = document.getElementById('searchInput').value.trim().toUpperCase();
+  render();
+}
+function clearSearch() {
+  searchQ = '';
+  document.getElementById('searchInput').value = '';
+  render();
+}
+function setFilter(f, btn) {
+  filter = f;
+  document.querySelectorAll('.ftab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+function showFlash(msg, type) {
+  const el = document.getElementById('flashMsg');
+  el.className = 'flash ' + type;
+  el.textContent = msg;
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>el.className='flash', 4000);
+}
+function setSyncStatus(state, text) {
+  document.getElementById('syncDot').className = 'sync-dot ' + state;
+  document.getElementById('syncLabel').textContent = text;
+}
+function exportCSV() {
+  let data = [...records];
+  if (searchQ) data = data.filter(r=>r.order.includes(searchQ));
+  if (!data.length) { alert('Export করার data নেই।'); return; }
+  const rows = [['Order #','Date','Time']];
+  data.forEach(r=>rows.push([r.order, r.date, r.time]));
+  const csv = rows.map(r=>r.join(',')).join('\n');
+  const blob = new Blob([csv],{type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'tb_scanlog_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+function fmtDate(d) { return d.toLocaleDateString('en-BD',{day:'2-digit',month:'short',year:'numeric'}); }
+function fmtTime(d) { return d.toLocaleTimeString('en-BD',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true}); }
+function rowToISO(dateStr, timeStr) {
+  try { return new Date(dateStr+' '+timeStr).toISOString(); }
+  catch { return new Date().toISOString(); }
+}
+
+loadFromSheet();
+</script>
+</body>
+</html>
