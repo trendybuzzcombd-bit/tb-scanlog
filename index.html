@@ -237,7 +237,7 @@
 </div>
 
 <script>
-const SHEET_URL='https://script.google.com/macros/s/AKfycbxY13TL0WLPp-nk7ZJVTW4oX31pyRpJiGKACWzrvRRZtqhYqEBr6E5CTQji0v-TGn45/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbznrvO5dnf3cFPWG6Esoe1rHIdPoz575fUh1kD2yGAyKHftoyIFOaFnJOjML10kfHkS/exec';
 let records=[],filter='all',searchQ='',dateFilter=null;
 
 function showTab(name,btn){
@@ -280,7 +280,7 @@ async function loadFromSheet(){
     const res=await fetch(SHEET_URL);
     const rows=await res.json();
     const data=rows.slice(1).filter(r=>r[0]);
-    records=data.map(r=>({order:String(r[0]).trim(),date:String(r[1]),time:String(r[2]),iso:rowToISO(r[1],r[2]),pending:false})).reverse();
+    records=data.map(r=>({order:String(r[0]).trim(),date:String(r[1]),time:String(r[2]),iso:r[3]?String(r[3]):rowToISO(r[1],r[2]),pending:false})).reverse();
     updateStats();renderRecent();render();renderSummary();
     setSyncStatus('ok',records.length+' records');
     document.getElementById('recCount').textContent=records.length+' records';
